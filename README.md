@@ -871,7 +871,560 @@ representa um fluxo AWS já provisionado.
 
  AWS / produção Não provisionado
 
- Revisão final --  Pendente
+ Revisão final --  Concluida
+
+
+ ---
+
+## Testes manuais da API com Postman
+
+Além dos **19 testes automatizados executados com pytest**, a API também pode ser validada manualmente utilizando o Postman.
+
+Antes de iniciar os testes, certifique-se de que a aplicação esteja em execução:
+
+```bash
+docker compose up -d
+```
+
+A API estará disponível em:
+
+```text
+http://127.0.0.1:8000
+```
+
+Os endpoints de profissionais e agendamentos são protegidos por autenticação JWT. Portanto, primeiro é necessário gerar um token de acesso.
+
+### 1. Gerar token JWT
+
+**Método:** `POST`
+
+```text
+http://127.0.0.1:8000/api/token/
+```
+
+No Postman, selecione:
+
+```text
+Body → raw → JSON
+```
+
+Envie:
+
+```json
+{
+  "username": "seu_usuario",
+  "password": "sua_senha"
+}
+```
+
+Resposta esperada:
+
+```text
+HTTP 200 OK
+```
+
+Exemplo:
+
+```json
+{
+  "refresh": "...",
+  "access": "..."
+}
+```
+
+Copie o valor de `access`.
+
+Nas próximas requisições protegidas, utilize no Postman:
+
+```text
+Authorization → Bearer Token
+```
+
+e informe o token de acesso recebido.
+
+---
+
+### 2. Listar profissionais
+
+**Método:** `GET`
+
+```text
+http://127.0.0.1:8000/api/professionals/
+```
+
+Autenticação:
+
+```text
+Authorization: Bearer <access_token>
+```
+
+Resultado esperado:
+
+```text
+HTTP 200 OK
+```
+
+A resposta deve retornar a lista de profissionais cadastrados.
+
+---
+
+### 3. Criar profissional
+
+**Método:** `POST`
+
+```text
+http://127.0.0.1:8000/api/professionals/
+```
+
+Autenticação:
+
+```text
+Authorization: Bearer <access_token>
+```
+
+No Postman:
+
+```text
+Body → raw → JSON
+```
+
+Exemplo:
+
+```json
+{
+  "social_name": "Maria Silva",
+  "profession": "Psicóloga",
+  "address": "Rua Exemplo, 100",
+  "contact": "11999999999"
+}
+```
+
+Resultado esperado:
+
+```text
+HTTP 201 Created
+```
+
+A resposta deverá conter os dados do profissional e seu UUID.
+
+Guarde o valor do campo `id`, pois ele poderá ser utilizado nos testes seguintes.
+
+---
+
+### 4. Consultar um profissional
+
+**Método:** `GET`
+
+```text
+http://127.0.0.1:8000/api/professionals/<uuid_do_profissional>/
+```
+
+Autenticação:
+
+```text
+Authorization: Bearer <access_token>
+```
+
+Resultado esperado:
+
+```text
+HTTP 200 OK
+```
+
+---
+
+### 5. Atualizar parcialmente um profissional
+
+**Método:** `PATCH`
+
+```text
+http://127.0.0.1:8000/api/professionals/<uuid_do_profissional>/
+```
+
+Exemplo de Body:
+
+```json
+{
+  "contact": "11888888888"
+}
+```
+
+Resultado esperado:
+
+```text
+HTTP 200 OK
+```
+
+---
+
+### 6. Criar agendamento
+
+**Método:** `POST`
+
+```text
+http://127.0.0.1:8000/api/appointments/
+```
+
+Autenticação:
+
+```text
+Authorization: Bearer <access_token>
+```
+
+No Postman:
+
+```text
+Body → raw → JSON
+```
+
+Exemplo:
+
+```json
+{
+  "date": "2026-09-01T14:30:00Z",
+  "professional": "<uuid_do_profissional>"
+}
+```
+
+Resultado esperado:
+
+```text
+HTTP 201 Created
+```
+
+A resposta deverá retornar o agendamento criado e seu UUID.
+
+---
+
+### 7. Listar agendamentos
+
+**Método:** `GET`
+
+```text
+http://127.0.0.1:8000/api/appointments/
+```
+
+Autenticação:
+
+```text
+Authorization: Bearer <access_token>
+```
+
+Resultado esperado:
+
+```text
+HTTP 200 OK
+```
+
+---
+
+### 8. Filtrar agendamentos por profissional
+
+A API permite buscar os agendamentos relacionados a um profissional específico através do UUID.
+
+**Método:** `GET`
+
+```text
+http://127.0.0.1:8000/api/appointments/?professional=<uuid_do_profissional>
+```
+
+Autenticação:
+
+```text
+Authorization: Bearer <access_token>
+```
+
+Resultado esperado:
+
+```text
+HTTP 200 OK
+```
+
+A resposta deverá conter apenas os agendamentos associados ao profissional informado.
+
+---
+
+### 9. Validar profissional inexistente
+
+Tente cadastrar um agendamento utilizando um UUID de profissional que não existe.
+
+**Método:** `POST`
+
+```text
+http://127.0.0.1:8000/api/appointments/
+```
+
+Exemplo:
+
+```json
+{
+  "date": "2026-09-01T14:30:00Z",
+  "professional": "00000000-0000-0000-0000-000000000000"
+}
+```
+
+Resultado esperado:
+
+```text
+HTTP 400 Bad Request
+```
+
+Esse teste verifica a validação do relacionamento entre agendamento e profissional.
+
+---
+
+### 10. Validar data inválida
+
+**Método:** `POST`
+
+```text
+http://127.0.0.1:8000/api/appointments/
+```
+
+Exemplo:
+
+```json
+{
+  "date": "data-invalida",
+  "professional": "<uuid_do_profissional>"
+}
+```
+
+Resultado esperado:
+
+```text
+HTTP 400 Bad Request
+```
+
+---
+
+### 11. Testar endpoint sem autenticação
+
+Remova temporariamente o Bearer Token e faça:
+
+**Método:** `GET`
+
+```text
+http://127.0.0.1:8000/api/professionals/
+```
+
+Resultado esperado:
+
+```text
+HTTP 401 Unauthorized
+```
+
+Esse teste confirma que os endpoints protegidos não podem ser acessados sem autenticação JWT.
+
+---
+
+### 12. Renovar token JWT
+
+**Método:** `POST`
+
+```text
+http://127.0.0.1:8000/api/token/refresh/
+```
+
+No Body, envie o `refresh` obtido durante a autenticação:
+
+```json
+{
+  "refresh": "<refresh_token>"
+}
+```
+
+Resultado esperado:
+
+```text
+HTTP 200 OK
+```
+
+A resposta deverá fornecer um novo token de acesso.
+
+---
+
+### Observação sobre os testes
+
+Os testes descritos acima são destinados à **validação manual da API utilizando Postman**.
+
+A validação automatizada do projeto é realizada separadamente através do pytest:
+
+```bash
+poetry run pytest
+```
+
+O projeto possui **19 testes automatizados**, cobrindo autenticação, CRUD, validações e filtro de agendamentos por profissional.
+
+Esses testes também são executados automaticamente pelo pipeline de CI configurado no GitHub Actions.
+
+---
+
+## Proposta de integração com Asaas — Split de Pagamento
+
+Como evolução da aplicação, é proposta uma integração com a **Asaas** para permitir o processamento de pagamentos relacionados aos atendimentos e a divisão dos valores através de split de pagamento.
+
+> Esta integração é uma proposta arquitetural e não foi implementada nesta versão do projeto.
+
+### Objetivo
+
+Em um cenário de produção, após o agendamento de um atendimento, a aplicação poderia gerar uma cobrança através da API da Asaas.
+
+O pagamento poderia ser dividido entre os participantes definidos pela regra de negócio, como, por exemplo:
+
+```text
+Paciente
+   │
+   │ realiza pagamento
+   ▼
+Medical API
+   │
+   │ solicita criação da cobrança
+   ▼
+API Asaas
+   │
+   ├── Parte do valor → Profissional
+   │
+   └── Parte do valor → Plataforma
+```
+
+### Fluxo proposto
+
+```text
+1. Paciente solicita/agende um atendimento
+                │
+                ▼
+2. Medical API registra o agendamento
+                │
+                ▼
+3. Medical API solicita uma cobrança à Asaas
+                │
+                ▼
+4. Asaas cria a cobrança
+                │
+                ▼
+5. Pagamento é realizado
+                │
+                ▼
+6. Asaas processa o pagamento e o split
+                │
+                ├──► Profissional
+                │
+                └──► Plataforma
+                │
+                ▼
+7. Asaas envia atualização por webhook
+                │
+                ▼
+8. Medical API atualiza o status do pagamento
+```
+
+### Possível implementação
+
+Uma implementação futura poderia adicionar uma entidade de pagamento relacionada ao agendamento.
+
+Exemplo conceitual:
+
+```text
+Appointment
+    │
+    │ 1:1
+    ▼
+Payment
+    ├── id
+    ├── appointment
+    ├── external_payment_id
+    ├── amount
+    ├── status
+    └── created_at
+```
+
+Após a criação de um agendamento, a aplicação poderia solicitar a geração da cobrança na Asaas e armazenar o identificador externo retornado pela plataforma.
+
+O split seria configurado conforme as regras de negócio definidas para o profissional e para a plataforma.
+
+### Webhooks
+
+Para evitar depender de consultas constantes ao serviço externo, a aplicação poderia disponibilizar um endpoint específico para receber eventos enviados pela Asaas.
+
+Exemplo conceitual:
+
+```text
+POST /api/webhooks/asaas/
+```
+
+Esse endpoint poderia receber eventos relacionados ao ciclo de vida do pagamento, permitindo que a aplicação atualize seu estado interno.
+
+Fluxo:
+
+```text
+Asaas
+  │
+  │ webhook
+  ▼
+/api/webhooks/asaas/
+  │
+  ▼
+Validação do evento
+  │
+  ▼
+Localização do pagamento
+  │
+  ▼
+Atualização do status
+```
+
+### Segurança da integração
+
+Em uma implementação real, alguns cuidados seriam necessários:
+
+- credenciais da Asaas armazenadas em variáveis de ambiente;
+- nenhuma chave de API versionada no Git;
+- validação das requisições recebidas pelo webhook;
+- comunicação através de HTTPS;
+- tratamento de falhas e indisponibilidade da API externa;
+- registro de logs das operações de pagamento;
+- prevenção de processamento duplicado de eventos;
+- validação dos valores antes da criação do split.
+
+As credenciais poderiam ser configuradas externamente, seguindo o mesmo princípio já utilizado no projeto para informações sensíveis:
+
+```env
+ASAAS_API_KEY=your-api-key
+```
+
+O arquivo `.env.example` conteria apenas o nome da variável, nunca uma credencial real.
+
+### Tratamento de falhas
+
+Caso a Asaas estivesse temporariamente indisponível, a criação do agendamento não precisaria necessariamente ser perdida.
+
+Uma estratégia possível seria:
+
+```text
+Agendamento criado
+       │
+       ▼
+Tentativa de criar pagamento
+       │
+       ├── Sucesso → salva identificador da cobrança
+       │
+       └── Falha   → registra erro e permite nova tentativa
+```
+
+Em uma evolução da arquitetura, o processamento também poderia ser realizado de forma assíncrona através de uma fila de tarefas.
+
+### Status da integração
+
+```text
+Proposta de fluxo       → Documentada
+Split de pagamento      → Proposto
+Webhook                 → Proposto
+Persistência pagamento  → Proposta
+Integração real Asaas   → Não implementada
+```
+
+A proposta demonstra como a API poderia evoluir para integrar pagamentos sem acoplar diretamente a lógica principal de agendamentos ao serviço externo.
 
 ## Autor
 
